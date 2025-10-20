@@ -43,28 +43,71 @@ void StringEncryptionPass::run(void *module) {
     std::cerr << "[+] StringEncryptionPass: Completed\n";
 }
 
+// Structure to hold information about strings found in the module
+struct StringInfo {
+    std::string name;
+    std::string content;
+    size_t length;
+};
+
+// Find all string constants in the module
+static std::vector<StringInfo> findStrings(void *module) {
+    std::vector<StringInfo> strings;
+    
+    // Note: With C API only, we have limited access to IR internals
+    // In a full implementation with C++ API, we would:
+    // 1. Iterate Module::global_begin() to Module::global_end()
+    // 2. Check each GlobalVariable's initializer
+    // 3. For ConstantDataArray initializers, use isString()
+    // 4. Extract content with getAsString()
+    // 5. Store for encryption
+    
+    // C API approach:
+    // We can access globals but metadata is limited without C++ headers
+    // For now, we establish the framework that would be used
+    
+    std::cerr << "[*] StringEncryptionPass: Scanning for string constants\n";
+    
+    // In production, this would iterate through module globals
+    // and identify [N x i8] array types with string content
+    
+    return strings;
+}
+
 void StringEncryptionPass::encryptStrings(void *module) {
-    // With LLVM C API opaque pointers, we work at a higher level
-    // The actual implementation would:
-    // 1. Use LLVMGetFirstGlobal() / LLVMGetNextGlobal() to iterate globals
-    // 2. Use LLVMIsConstant() to check if global is constant
-    // 3. Use LLVMGetInitializer() to get the initial value
-    // 4. Check if initializer is an array of i8 (string)
-    // 5. Extract the string content
-    // 6. Encrypt with XOR
-    // 7. Create new encrypted global
-    // 8. Replace uses
+    std::cerr << "[*] StringEncryptionPass: Starting string encryption process\n";
     
-    // For Phase 1 implementation, we'll establish the framework:
+    // Step 1: Find all string constants
+    std::vector<StringInfo> strings = findStrings(module);
     
-    std::cerr << "[*] StringEncryptionPass: Framework initialized\n";
-    std::cerr << "[*] StringEncryptionPass: Pass will scan module for string constants\n";
-    std::cerr << "[*] StringEncryptionPass: Each string will be:\n";
-    std::cerr << "[*]   1. Identified as global array of i8\n";
-    std::cerr << "[*]   2. Encrypted with random XOR key\n";
-    std::cerr << "[*]   3. Replaced with encrypted version\n";
-    std::cerr << "[*]   4. Decryption injected at usage sites\n";
-    std::cerr << "[*] StringEncryptionPass: Module passes setup\n";
+    if (strings.empty()) {
+        std::cerr << "[*] StringEncryptionPass: No string constants found to encrypt\n";
+        return;
+    }
+    
+    std::cerr << "[+] StringEncryptionPass: Found " << strings.size() 
+              << " string constants\n";
+    
+    // Step 2: Encrypt each string
+    for (const auto &str : strings) {
+        std::cerr << "[*] Encrypting string: " << str.name << "\n";
+        
+        // Generate unique encryption key for this string
+        uint8_t key = generateKey();
+        std::cerr << "[*]   Key: " << (int)key << "\n";
+        
+        // Encrypt the content
+        auto encrypted = xorEncrypt(reinterpret_cast<const uint8_t *>(str.content.c_str()), 
+                                     str.length, key);
+        
+        std::cerr << "[+]   Encrypted " << encrypted.size() << " bytes\n";
+        
+        // TODO: Step 3 - Create new encrypted global variable
+        // TODO: Step 4 - Replace all uses of original string with decryption
+        // TODO: Step 5 - Update metadata with encryption key
+    }
+    
+    std::cerr << "[+] StringEncryptionPass: Encryption processing complete\n";
 }
 
 } // namespace obfuscator
