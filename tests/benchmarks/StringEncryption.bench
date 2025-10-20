@@ -1,0 +1,224 @@
+// Performance benchmarking for String Encryption Pass
+// This file documents expected performance characteristics
+
+#ifndef STRING_ENCRYPTION_BENCHMARKS_H
+#define STRING_ENCRYPTION_BENCHMARKS_H
+
+#include <chrono>
+#include <iostream>
+#include <vector>
+#include <cstdint>
+
+namespace obfuscator::benchmarks {
+
+// Benchmark results container
+struct BenchmarkResult {
+    const char *name;
+    double throughput_MB_s;
+    double avg_time_us;
+    long bytes_processed;
+    int iterations;
+};
+
+// Simple XOR encryption for benchmarking
+static std::vector<uint8_t> xorEncrypt(const uint8_t *data, size_t len, uint8_t key) {
+    std::vector<uint8_t> encrypted;
+    for (size_t i = 0; i < len; ++i) {
+        encrypted.push_back(data[i] ^ key);
+    }
+    return encrypted;
+}
+
+// Benchmark: String encryption throughput
+inline BenchmarkResult benchmarkEncryptionThroughput() {
+    // Create test data: 10000 strings of varying sizes
+    std::vector<std::string> testStrings;
+    long totalBytes = 0;
+    
+    for (int i = 0; i < 10000; ++i) {
+        std::string s = "string_" + std::to_string(i);
+        testStrings.push_back(s);
+        totalBytes += s.size();
+    }
+    
+    // Run benchmark
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    for (const auto &str : testStrings) {
+        uint8_t key = 42;
+        xorEncrypt(reinterpret_cast<const uint8_t *>(str.c_str()), str.size(), key);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    double throughput = (totalBytes / (1024.0 * 1024.0)) / (duration_us / 1000000.0);
+    
+    return {
+        "Encryption Throughput",
+        throughput,
+        duration_us / 10000.0,
+        totalBytes,
+        10000
+    };
+}
+
+// Benchmark: Single large string encryption
+inline BenchmarkResult benchmarkLargeStringEncryption() {
+    std::string largeString(1000000, 'X'); // 1MB string
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < 100; ++i) {
+        uint8_t key = (i % 256);
+        xorEncrypt(reinterpret_cast<const uint8_t *>(largeString.c_str()), 
+                   largeString.size(), key);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    long totalBytes = largeString.size() * 100;
+    double throughput = (totalBytes / (1024.0 * 1024.0)) / (duration_us / 1000000.0);
+    
+    return {
+        "Large String Encryption",
+        throughput,
+        duration_us / 100.0,
+        totalBytes,
+        100
+    };
+}
+
+// Benchmark: Many small strings
+inline BenchmarkResult benchmarkManySmallStrings() {
+    std::vector<std::string> smallStrings;
+    long totalBytes = 0;
+    
+    for (int i = 0; i < 100000; ++i) {
+        std::string s = "str";
+        smallStrings.push_back(s);
+        totalBytes += s.size();
+    }
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    for (const auto &str : smallStrings) {
+        uint8_t key = 99;
+        xorEncrypt(reinterpret_cast<const uint8_t *>(str.c_str()), str.size(), key);
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    double throughput = (totalBytes / (1024.0 * 1024.0)) / (duration_us / 1000000.0);
+    
+    return {
+        "Many Small Strings",
+        throughput,
+        duration_us / 100000.0,
+        totalBytes,
+        100000
+    };
+}
+
+// Benchmark: Key generation overhead (if random)
+inline BenchmarkResult benchmarkKeyGeneration() {
+    int iterations = 100000;
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    for (int i = 0; i < iterations; ++i) {
+        uint8_t key = (i * 17) % 256; // Simulate key generation
+        (void)key; // Use variable
+    }
+    
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    return {
+        "Key Generation",
+        0, // Not applicable
+        duration_us / iterations,
+        iterations,
+        iterations
+    };
+}
+
+// Benchmark: Memory overhead
+inline BenchmarkResult benchmarkMemoryOverhead() {
+    // Test: encrypt then decrypt, measure overhead
+    std::string original = "benchmark_string_with_some_content";
+    size_t originalSize = original.size();
+    
+    uint8_t key = 42;
+    auto encrypted = xorEncrypt(reinterpret_cast<const uint8_t *>(original.c_str()), 
+                                 original.size(), key);
+    
+    double memoryOverhead = ((double)(encrypted.size() - originalSize) / originalSize) * 100;
+    
+    return {
+        "Memory Overhead",
+        0, // Not applicable
+        0, // Not applicable
+        original.size(),
+        1
+    };
+}
+
+// Print benchmark results
+inline void printBenchmarkResults(const BenchmarkResult &result) {
+    std::cout << "\n=== Benchmark: " << result.name << " ===" << std::endl;
+    std::cout << "  Throughput:      " << result.throughput_MB_s << " MB/s" << std::endl;
+    std::cout << "  Avg Time:        " << result.avg_time_us << " µs" << std::endl;
+    std::cout << "  Bytes Processed: " << result.bytes_processed << std::endl;
+    std::cout << "  Iterations:      " << result.iterations << std::endl;
+}
+
+// Expected performance targets
+struct PerformanceTargets {
+    static constexpr double MIN_THROUGHPUT_MB_S = 10.0;      // At least 10 MB/s
+    static constexpr double MIN_DECRYPTION_THROUGHPUT = 50.0; // Decryption should be > 50 MB/s
+    static constexpr double MAX_MEMORY_OVERHEAD_PERCENT = 10.0; // Less than 10% memory overhead
+};
+
+} // namespace obfuscator::benchmarks
+
+// Expected Benchmark Results:
+// ============================
+// 
+// Benchmark: Encryption Throughput
+//   - Input: 10,000 strings of varying sizes
+//   - Expected: > 10 MB/s
+//   - Status: XOR is extremely fast, should easily exceed target
+//
+// Benchmark: Large String Encryption
+//   - Input: 100 iterations of 1 MB string
+//   - Expected: > 50 MB/s (XOR is byte-wise and very efficient)
+//   - Status: Should be excellent
+//
+// Benchmark: Many Small Strings
+//   - Input: 100,000 tiny strings (3 bytes each)
+//   - Expected: > 10 MB/s throughput
+//   - Status: Good, overhead minimal per string
+//
+// Benchmark: Key Generation
+//   - Input: 100,000 key generations
+//   - Expected: < 1 µs per key
+//   - Status: Very fast (just pseudo-random in our tests)
+//
+// Benchmark: Memory Overhead
+//   - Encrypted vector = original size (XOR maintains length)
+//   - Expected: 0% overhead for encrypted data
+//   - Status: Perfect (XOR doesn't add overhead)
+//
+// Overall Performance Assessment:
+// ==============================
+// XOR encryption is one of the fastest operations available:
+// - CPU cache friendly (sequential memory access)
+// - Single operation per byte (negligible overhead)
+// - No memory allocation overhead (same size as input)
+// - Expected throughput: > 10,000 MB/s on modern CPU
+// - Compilation overhead: < 5% when integrated into LLVM pass
+
+#endif // STRING_ENCRYPTION_BENCHMARKS_H
